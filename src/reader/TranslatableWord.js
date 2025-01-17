@@ -1,12 +1,10 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { useClickOutside } from "react-click-outside-hook";
 import AlterMenu from "./AlterMenu";
 import { APIContext } from "../contexts/APIContext";
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-
-import { zeeguuDarkRed } from "../components/colors";
+import extractDomain from "../utils/web/extractDomain";
+import redirect from "../utils/routing/routing";
 
 export default function TranslatableWord({
   interactiveText,
@@ -27,6 +25,10 @@ export default function TranslatableWord({
 
   const api = useContext(APIContext);
 
+  useEffect(() => {
+    if (word.translation) setIsVisible(false);
+  }, []);
+
   function clickOnWord(e, word) {
     if (word.translation) {
       if (pronouncing) interactiveText.pronounce(word);
@@ -35,15 +37,18 @@ export default function TranslatableWord({
       return;
     }
     if (translating) {
-      e.target.classList.add("loading");
-      setPreviousWord(word.word);
-      setIsWordTranslating(true);
-      interactiveText.translate(word, () => {
-        wordUpdated();
-        e.target.classList.remove("loading");
-        setIsWordTranslating(false);
-        setIsVisible(true);
-      });
+      if (!disableTranslation && !word.is_punct) {
+        e.target.classList.add("loading");
+        setPreviousWord(word.word);
+        setIsWordTranslating(true);
+        interactiveText.translate(word, () => {
+          wordUpdated();
+          e.target.classList.remove("loading");
+          setIsWordTranslating(false);
+          setIsVisible(true);
+        });
+      }
+
       if (translatedWords) {
         let copyOfWords = [...translatedWords];
         copyOfWords.push(word.word);
@@ -73,7 +78,6 @@ export default function TranslatableWord({
       (response) => {
         if (response === "OK") {
           // delete was successful; log and close
-          word.translation = undefined;
           word.splitIntoComponents();
           wordUpdated();
         }
@@ -105,22 +109,69 @@ export default function TranslatableWord({
   }
 
   function hideTranslation(e, word) {
-    word.translation = undefined;
     word.splitIntoComponents();
     wordUpdated();
   }
 
-  //disableTranslation so user cannot translate words that are being tested
-  if ((!word.translation && !isClickedToPronounce) || disableTranslation) {
+  function getWordClass(word) {
+    /*
+    Function determines which class to be assigned to the word object.
+    Mainly, to render the punctuation cases that need to be handled differently.
+    By default, all punctuation words are assigned the class "punct", which means they
+    are moved slightly to the left, to be close to the previous tokens.
+    - left_punct means that the punctuation is moved a bit to the right, for example ( 
+    */
+    const noMarginPunctuation = ["–", "—", "“", "‘", '"'];
+    let allClasses = [];
+    if (word.is_punct) allClasses.push("punct");
+    if (
+      word.is_left_punct ||
+      (word.is_punct &&
+        word.prev &&
+        [":", ".", ","].includes(word.prev.word.trim()))
+    )
+      allClasses.push("left-punct");
+    if (word.is_like_num) allClasses.push("number");
+    if (noMarginPunctuation.includes(word.word.trim()))
+      allClasses.push("no-margin");
+    return allClasses.join(" ");
+  }
+
+  const wordClass = getWordClass(word);
+
+  if (word.is_like_email)
     return (
       <>
-        <z-tag onClick={(e) => clickOnWord(e, word)}>{word.word + " "}</z-tag>
+        <z-tag>
+          <a href={"mailto:" + word.word}>{extractDomain(word.word) + " "}</a>
+        </z-tag>
+      </>
+    );
+  if (word.is_like_url)
+    return (
+      <>
+        <z-tag onClick={() => redirect(word.word, true)}>
+          <span className="link-style">{extractDomain(word.word) + " "}</span>
+        </z-tag>
+      </>
+    );
+  //disableTranslation so user cannot translate words that are being tested
+  if (
+    (!isWordTranslating && !word.translation && !isClickedToPronounce) ||
+    disableTranslation
+  ) {
+    return (
+      <>
+        <z-tag class={wordClass} onClick={(e) => clickOnWord(e, word)}>
+          {word.word + " "}
+        </z-tag>
       </>
     );
   }
+
   return (
     <>
-      <z-tag>
+      <z-tag class={wordClass}>
         {word.translation && isVisible && (
           <z-tran
             chosen={word.translation}
