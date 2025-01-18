@@ -7,19 +7,18 @@ import * as s from "./Sidebar.sc";
 import NavOption from "../NavOption";
 import FeedbackButton from "../../FeedbackButton";
 import NavigationOptions from "../navigationOptions";
+import { MainNavContext } from "../../../contexts/MainNavContext";
 
-export default function Sidebar({ isOnStudentSide, isTeacher, screenWidth }) {
-  const { is_teacher } = useContext(UserContext);
+export default function Sidebar({ screenWidth }) {
+  const { is_teacher: isTeacher } = useContext(UserContext);
+  const { mainNav } = useContext(MainNavContext);
+  const { isOnStudentSide } = mainNav;
 
   const path = useLocation().pathname;
-  const defaultPage = is_teacher ? "/teacher/classes" : "articles";
+  const defaultPage = isTeacher ? "/teacher/classes" : "articles";
 
   return (
-    <s.SideBar
-      $isOnStudentSide={isOnStudentSide}
-      $screenWidth={screenWidth}
-      role="navigation"
-    >
+    <s.SideBar $screenWidth={screenWidth} role="navigation">
       <NavOption
         className={"logo"}
         linkTo={defaultPage}
@@ -28,29 +27,20 @@ export default function Sidebar({ isOnStudentSide, isTeacher, screenWidth }) {
       ></NavOption>
 
       {isOnStudentSide && (
-        <SidebarOptionsForStudent
-          isTeacher={isTeacher}
-          screenWidth={screenWidth}
-        />
+        <SidebarOptionsForStudent screenWidth={screenWidth} />
       )}
 
       {!isOnStudentSide && (
         <SidebarOptionsForTeacher screenWidth={screenWidth} />
       )}
 
-      <s.BottomSection
-        $screenWidth={screenWidth}
-        $isOnStudentSide={isOnStudentSide}
-      >
+      <s.BottomSection $screenWidth={screenWidth}>
         <NavOption
           {...NavigationOptions.settings}
           currentPath={path}
           screenWidth={screenWidth}
         />
-        <FeedbackButton
-          screenWidth={screenWidth}
-          isOnStudentSide={isOnStudentSide}
-        />
+        <FeedbackButton screenWidth={screenWidth} />
       </s.BottomSection>
     </s.SideBar>
   );
